@@ -5,3 +5,11 @@
 allowBuilds:
   '@launchql/protobufjs': false
   esbuild: true
+
+# tsx pins esbuild below the fix for a Windows-only dev-server advisory.
+# Patch-level, so forcing it is safe. Drop once tsx ships the patched range.
+# Deliberately NOT overriding @hono/node-server: its fix is a major bump
+# (1.x -> 2.x) inside @supabase/lite, and the advisory is Windows-only
+# serve-static path traversal, which nothing here uses.
+overrides:
+  esbuild: '>=0.28.1'
