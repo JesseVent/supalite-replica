@@ -1,0 +1,7 @@
+# pnpm 11 reads build-script approval from here, not package.json.
+# esbuild: tsx/vitest need its native binary (also provided via optional deps,
+# but we allow the build so install doesn't hard-fail on ERR_PNPM_IGNORED_BUILDS).
+# @launchql/protobufjs is a transitive dep of @supabase/lite we never use.
+allowBuilds:
+  '@launchql/protobufjs': false
+  esbuild: true
