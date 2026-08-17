@@ -126,13 +126,13 @@ const result = await restoreReplica({
   // point: { timestamp: "2026-08-09T12:00:00Z" }
 });
 
-console.log(result.txid, result.integrity);   // integrity === "ok"
+console.log(result.target, result.integrity);   // integrity === "ok"
 ```
 
 `restoreReplica` writes the recovered database to `target` (which must not
 exist and must differ from the source), then reopens it read-only via
 `node:sqlite` with `immutable=1` and asserts `PRAGMA quick_check` returns `ok`.
-If the integrity check fails, it throws `INTEGRITY_CHECK_FAILED` and cleans up.
+If the integrity check fails, it throws `RESTORE_INTEGRITY_FAILED` and cleans up.
 
 ### S3 instead of a local file replica
 
@@ -300,10 +300,28 @@ litestreamConfig(options): string   // the generated YAML, for inspection / CI
 `ReplicaController`: `{ status(), flush(timeoutMs?), close(timeoutMs?), [Symbol.asyncDispose] }`.
 
 Errors are `ReplicaError` instances with a `code`: `BINARY_NOT_FOUND`,
-`UNSAFE_SQLITE_VERSION`, `DATABASE_PATH_MISMATCH`, `PRAGMA_FAILED`,
-`LITESTREAM_TIMEOUT`, `LITESTREAM_EXIT`, `FLUSH_FAILED`, `REPLICA_STOPPED`,
-`RESTORE_TARGET_EXISTS`, `RESTORE_TARGET_IS_SOURCE`, `INTEGRITY_CHECK_FAILED`,
-`SQLITE_PROBE_FAILED`. No secrets appear in error messages.
+`UNSAFE_SQLITE_VERSION`, `DATABASE_PATH_MISMATCH`, `FILE_BACKED_REQUIRED`,
+`PRAGMA_FAILED`, `LITESTREAM_TIMEOUT`, `LITESTREAM_SPAWN_FAILED`,
+`LITESTREAM_EXIT`, `INVALID_CONFIG`, `FLUSH_FAILED`, `REPLICA_STOPPED`,
+`INVALID_TARGET`, `RESTORE_INTEGRITY_FAILED`, `SQLITE_PROBE_FAILED`. No
+secrets appear in error messages.
+
+---
+
+## Examples
+
+Usage patterns built on the library API above, not new library surface —
+plain scripts in [`examples/`](./examples), each independently useful:
+
+| Script | What it does |
+|---|---|
+| [`hosted.mjs`](./examples/hosted.mjs) | Write path: boots a local writable connection, restoring from the replica if it already has data (else runs your `migrate` once), then `startReplica`s so every commit ships back out. The complement of a read-only replica: this is how you treat S3 as the durable home of a database you actively write to. |
+| [`bunnyhop.mjs`](./examples/bunnyhop.mjs) | Read path: polls `restoreReplica` on an interval and atomically promotes each fresh snapshot over a stable path — an always-current local copy, no writes, no load on the live database. |
+| [`analytics.mjs`](./examples/analytics.mjs) | Queries a snapshot (e.g. `bunnyhop.mjs`'s promoted file) with DuckDB instead of plain SQL — aggregates, regex, window functions — by shelling out to an operator-installed `duckdb` binary, same trust model this package already uses for Litestream. |
+
+None of these add a dependency or touch `src/` — they're thin compositions
+of `startReplica`/`restoreReplica`, kept out of the library itself for the
+same reason listed under [Contributing](#contributing).
 
 ---
 
