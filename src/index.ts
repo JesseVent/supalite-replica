@@ -381,7 +381,7 @@ export async function startReplica(options: StartReplicaOptions): Promise<Replic
   await preflightConnection(options.connection, databaseFile, durability, allowUnsafeSqlite);
 
   const binary = await resolveBinary(options.binaryPath);
-  const versionResult = await runOnce(binary, ["version"], { NO_COLOR: "1" }, 5_000);
+  const versionResult = await runOnce(binary, ["version"], { ...childEnvironment("", ""), NO_COLOR: "1" }, 5_000);
   const binaryVersion = versionResult.stdout.trim().split("\n")[0] ?? "unknown";
 
   // Private working directory + config + socket, beside the database's directory
@@ -423,7 +423,7 @@ export async function startReplica(options: StartReplicaOptions): Promise<Replic
         throw new ReplicaError("LITESTREAM_EXIT", `sidecar exited before ready\n${stderr}`);
       }
       try {
-        const res = await runOnce(binary, ["list", "-json", "-socket", socketPath, "-timeout", "1"], { NO_COLOR: "1", TMPDIR: workDir }, 2_000);
+        const res = await runOnce(binary, ["list", "-json", "-socket", socketPath, "-timeout", "1"], childEnvironment(databaseFile, workDir), 2_000);
         const entry = listDatabaseEntry(tryJson(res.stdout));
         if (entry !== undefined && entry.status === "replicating") {
           ready = true;
@@ -448,7 +448,7 @@ export async function startReplica(options: StartReplicaOptions): Promise<Replic
       return { state: "stopped", walBytes: walSize(), binaryVersion };
     }
     try {
-      const res = await runOnce(binary, ["list", "-json", "-socket", socketPath, "-timeout", "1"], { NO_COLOR: "1", TMPDIR: workDir }, 2_000);
+      const res = await runOnce(binary, ["list", "-json", "-socket", socketPath, "-timeout", "1"], childEnvironment(databaseFile, workDir), 2_000);
       const entry = listDatabaseEntry(tryJson(res.stdout));
       if (entry !== undefined) {
         const replicating = entry.status === "replicating";
@@ -493,7 +493,7 @@ export async function startReplica(options: StartReplicaOptions): Promise<Replic
     const res = await runOnce(
       binary,
       ["sync", "-wait", "-timeout", seconds, "-json", "-socket", socketPath, databaseFile],
-      { NO_COLOR: "1", TMPDIR: workDir },
+      childEnvironment(databaseFile, workDir),
       timeoutMs,
     );
     const parsed = tryJson(res.stdout) as Record<string, unknown> | undefined;
